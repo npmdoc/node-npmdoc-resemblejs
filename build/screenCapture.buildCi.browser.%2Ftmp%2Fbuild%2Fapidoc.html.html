@@ -1,0 +1,310 @@
+<html><head></head><body><div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a href="https://github.com/Huddle/Resemble.js">resemblejs (v2.2.3)</a>
+</h1>
+<h4>Image analysis and comparison with HTML5</h4>
+<div class="apidocSectionDiv"><a href="#apidoc.tableOfContents" id="apidoc.tableOfContents"><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.resemblejs">module resemblejs</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.resemblejs.resemblejs">
+            function <span class="apidocSignatureSpan"></span>resemblejs
+            <span class="apidocSignatureSpan">( fileData )</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.resemblejs.outputSettings">
+            function <span class="apidocSignatureSpan">resemblejs.</span>outputSettings
+            <span class="apidocSignatureSpan">(options)</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.resemblejs" id="apidoc.module.resemblejs">module resemblejs</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.resemblejs.resemblejs" id="apidoc.element.resemblejs.resemblejs">
+        function <span class="apidocSignatureSpan"></span>resemblejs
+        <span class="apidocSignatureSpan">( fileData )</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">resemblejs = function ( fileData ){
+
+		var data = {};
+		var images = [];
+		var updateCallbackArray = [];
+
+		var tolerance = { // between 0 and 255
+			red: 16,
+			green: 16,
+			blue: 16,
+			alpha: 16,
+			minBrightness: 16,
+			maxBrightness: 240
+		};
+
+		var ignoreAntialiasing = false;
+		var ignoreColors = false;
+		var scaleToSameSize = false;
+
+		function triggerDataUpdate(){
+			var len = updateCallbackArray.length;
+			var i;
+			for(i=0;i&lt;len;i++){
+				if (typeof updateCallbackArray[i] === 'function'){
+					updateCallbackArray[i](data);
+				}
+			}
+		}
+
+		function loop(w, h, callback){
+			var x,y;
+
+			for (x=0;x&lt;w;x++){
+				for (y=0;y&lt;h;y++){
+					callback(x, y);
+				}
+			}
+		}
+
+		function parseImage(sourceImageData, width, height){
+
+			var pixelCount = 0;
+			var redTotal = 0;
+			var greenTotal = 0;
+			var blueTotal = 0;
+			var alphaTotal = 0;
+			var brightnessTotal = 0;
+			var whiteTotal = 0;
+			var blackTotal = 0;
+
+			loop(width, height, function(horizontalPos, verticalPos){
+				var offset = (verticalPos*width + horizontalPos) * 4;
+				var red = sourceImageData[offset];
+				var green = sourceImageData[offset + 1];
+				var blue = sourceImageData[offset + 2];
+				var alpha = sourceImageData[offset + 3];
+				var brightness = getBrightness(red,green,blue);
+
+				if (red == green &amp;&amp; red == blue &amp;&amp; alpha) {
+					if (red == 0) {
+						blackTotal++
+					} else if (red == 255) {
+						whiteTotal++
+					}
+				}
+
+				pixelCount++;
+
+				redTotal += red / 255 * 100;
+				greenTotal += green / 255 * 100;
+				blueTotal += blue / 255 * 100;
+				alphaTotal += (255 - alpha) / 255 * 100;
+				brightnessTotal += brightness / 255 * 100;
+			});
+
+			data.red = Math.floor(redTotal / pixelCount);
+			data.green = Math.floor(greenTotal / pixelCount);
+			data.blue = Math.floor(blueTotal / pixelCount);
+			data.alpha = Math.floor(alphaTotal / pixelCount);
+			data.brightness = Math.floor(brightnessTotal / pixelCount);
+			data.white = Math.floor(whiteTotal / pixelCount * 100);
+			data.black = Math.floor(blackTotal / pixelCount * 100);
+
+			triggerDataUpdate();
+		}
+
+		function loadImageData( fileData, callback ){
+			var fileReader;
+			var hiddenImage = new Image();
+
+			if(useCrossOrigin) {
+				hiddenImage.setAttribute('crossorigin', 'anonymous');
+			}
+
+			hiddenImage.onerror = function () {
+				hiddenImage.onerror = null; //fixes pollution between calls
+				images.push({ error : "Image load error."});
+				callback();
+			};
+
+			hiddenImage.onload = function() {
+				hiddenImage.onload = null; //fixes pollution between calls
+
+				var hiddenCanvas =  document.createElement('canvas');
+				var imageData;
+
+				// don't assign to hiddenImage, see https://github.com/Huddle/Resemble.js/pull/87/commits/300d43352a2845aad289b254bfbdc7cd6a37e2d7
+				var width = hiddenImage.width;
+				var height = hiddenImage.height;
+
+				if( scaleToSameSize &amp;&amp; images.length == 1 ){
+					width   = images[0].width;
+					height  = images[0].height;
+				}
+
+				hiddenCanvas.width = width;
+				hiddenCanvas.height = height;
+
+				hiddenCanvas.getContext('2d').drawImage(hiddenImage, 0, 0, width, height);
+				imageData = hiddenCanvas.getContext('2d').getImageData(0, 0, width, height);
+
+				images.push(imageData);
+
+				callback(imageData, width, height);
+			};
+
+			if (typeof fileData === 'string') {
+				hiddenImage.src = fileData;
+				if (hiddenImage.complete &amp;&amp; hiddenImage.naturalWidth &gt; 0) {
+					hiddenImage.onload();
+				}
+			} else if (typeof fileData.data !== 'undefined'
+					&amp;&amp; typeof fileData.width === 'number'
+					&amp;&amp; typeof fileData.height === 'number') {
+
+				images.push(fileData);
+
+				callback(fileData, fileData.width, fileData.height);
+
+			} else {
+				fileReader = new FileReader();
+				fileReader.onload = function (event) {
+					hiddenImage.src = event.target.result;
+				};
+				fileReader.readAsDataURL(fileData);
+			}
+		}
+
+		function isColorSimilar(a, b, color){
+
+			var absDiff = Math.abs(a - b);
+
+			if(typeof a === 'undefined'){
+				return false; ...</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.resemblejs.outputSettings" id="apidoc.element.resemblejs.outputSettings">
+        function <span class="apidocSignatureSpan">resemblejs.</span>outputSettings
+        <span class="apidocSignatureSpan">(options)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">outputSettings = function (options){
+		var key;
+		var undefined;
+
+		if(options.errorColor){
+			for (key in options.errorColor) {
+				errorPixelColor[key] = options.errorColor[key] === undefined ? errorPixelColor[key] : options.errorColor[key];
+			}
+		}
+
+		if(options.errorType &amp;&amp; errorPixelTransform[options.errorType] ){
+			errorPixel = errorPixelTransform[options.errorType];
+		}
+
+		pixelTransparency = isNaN(Number(options.transparency)) ? pixelTransparency : options.transparency;
+
+		if (options.largeImageThreshold !== undefined) {
+			largeImageThreshold = options.largeImageThreshold;
+		}
+
+		if (options.useCrossOrigin !== undefined) {
+			useCrossOrigin = options.useCrossOrigin;
+		}
+
+		return this;
+	}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+diff.ignoreAntialiasing();
+```
+
+
+And change the output display style.
+
+```javascript
+resemble.<span class="apidocCodeKeywordSpan">outputSettings</span>({
+errorColor: {
+  red: 255,
+  green: 0,
+  blue: 255
+},
+errorType: 'movement',
+transparency: 0.3,
+...</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
+</body></html>
